@@ -1,0 +1,6 @@
+{
+  "name": "Tradeoff",
+  "description": "A personal decision journal to compare two options, record choices, and reflect on outcomes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
