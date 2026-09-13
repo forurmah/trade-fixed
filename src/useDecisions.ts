@@ -1,57 +1,127 @@
 import { useState, useCallback } from 'react';
-import { Decision, CreateDecisionInput } from './types';
+import { Decision, CreateDecisionInput, UpdateDecisionInput } from './types';
 import {
-  loadDecisionsFromStorage,
+  getDecisionsFromStorage,
   createAndStoreDecision,
+  updateAndStoreDecision,
   clearDecisionsFromStorage,
+  StorageLoadResult,
 } from './decisionStorage';
 
 export type NewDecisionInput = CreateDecisionInput;
 
 /**
  * Custom hook to manage decisions state and sync with localStorage.
- * Uses lazy initial state (() => loadDecisionsFromStorage()) so that decisions
- * are synchronously populated during initial mount. This avoids re-rendering
- * or empty-state flashing after each page refresh.
+ * Uses lazy initial state (() => getDecisionsFromStorage()) so that decisions
+ * and storage load status are synchronously populated during initial mount.
+ * Distinguishes between "no saved decisions" and "saved decisions couldn't be loaded".
  */
 export function useDecisions() {
-  // Lazy initial state reads localStorage synchronously on first render via getItem & parse
-  const [decisions, setDecisions] = useState<Decision[]>(() => loadDecisionsFromStorage());
+  const [loadResult, setLoadResult] = useState<StorageLoadResult>(() => {
+    try {
+      return getDecisionsFromStorage();
+    } catch (error) {
+      console.error('Failed to load decisions during initialization:', error);
+      return {
+        decisions: [],
+        loadError:
+          'Saved decisions couldn’t be loaded due to an unexpected storage access error. Original stored data was preserved.',
+      };
+    }
+  });
+
+  /**
+   * Re-reads from localStorage to retry loading if an error previously occurred.
+   */
+  const reloadDecisions = useCallback(() => {
+    try {
+      const result = getDecisionsFromStorage();
+      setLoadResult(result);
+    } catch (error) {
+      console.error('Failed to reload decisions from storage:', error);
+      setLoadResult((prev) => ({
+        decisions: prev.decisions,
+        loadError:
+          'Saved decisions couldn’t be loaded due to an unexpected storage access error. Original stored data was preserved.',
+      }));
+    }
+  }, []);
 
   /**
    * Adds a decision:
    * 1. Fetches current decisions directly from localStorage via getItem & parse string.
    * 2. Prepends the newly created decision.
    * 3. Saves the updated array to localStorage with setItem & stringify.
-   * 4. Updates React state with the resulting array.
-   *
-   * By retrieving from localStorage via getItem and parsing the string outside
-   * of any state updater callback:
-   * - React state updaters remain strictly pure (StrictMode safe).
-   * - No stale closure issues; addDecision has a stable identity ([]) across renders.
-   * - Storage acts as the verified source of truth before setting React state.
+   * 4. Updates React state with the resulting array and clears load error.
    */
   const addDecision = useCallback((input: NewDecisionInput): Decision => {
-    // Reads with getItem and parses JSON string, prepends new decision, writes to storage
-    const { newDecision, updatedDecisions } = createAndStoreDecision(input);
+    try {
+      // Reads with getItem and parses JSON string, prepends new decision, writes to storage
+      const { newDecision, updatedDecisions } = createAndStoreDecision(input);
 
-    // Updates React state with the pure updated value
-    setDecisions(updatedDecisions);
+      // Updates React state with the pure updated value
+      setLoadResult({ decisions: updatedDecisions, loadError: null });
 
-    return newDecision;
+      return newDecision;
+    } catch (error) {
+      console.error('Failed to add decision to storage:', error);
+      throw error;
+    }
   }, []);
+
+  /**
+   * Updates an existing decision:
+   * 1. Updates persistent record by ID in localStorage, strictly preserving its creation date.
+   * 2. Only updates React state / screen after saving succeeds.
+   * 3. Throws if saving to storage fails so caller can surface the error without updating the screen.
+   */
+  const updateDecision = useCallback(
+    (id: string, updates: UpdateDecisionInput): Decision => {
+      try {
+        // Save to persistent storage FIRST:
+        const { updatedDecision, updatedDecisions } = updateAndStoreDecision(id, updates);
+
+        // React state / screen is updated ONLY AFTER saving succeeds:
+        setLoadResult({ decisions: updatedDecisions, loadError: null });
+
+        return updatedDecision;
+      } catch (error) {
+        console.error('Failed to update decision in storage:', error);
+        throw error;
+      }
+    },
+    []
+  );
 
   /**
    * Clears all decisions from state and localStorage.
    */
   const clearAllDecisions = useCallback(() => {
-    clearDecisionsFromStorage();
-    setDecisions([]);
+    try {
+      clearDecisionsFromStorage();
+      setLoadResult({ decisions: [], loadError: null });
+    } catch (error) {
+      console.error('Failed to clear decisions from storage:', error);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * Direct setter for decisions if needed.
+   */
+  const setDecisions = useCallback((newDecisions: Decision[] | ((prev: Decision[]) => Decision[])) => {
+    setLoadResult((prev) => {
+      const resolved = typeof newDecisions === 'function' ? newDecisions(prev.decisions) : newDecisions;
+      return { decisions: resolved, loadError: null };
+    });
   }, []);
 
   return {
-    decisions,
+    decisions: loadResult.decisions,
+    loadError: loadResult.loadError,
+    reloadDecisions,
     addDecision,
+    updateDecision,
     clearAllDecisions,
     setDecisions,
   };

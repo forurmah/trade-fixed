@@ -1,4 +1,4 @@
-import { DecisionFormData, FormErrors, ChosenOptionValue } from './types';
+import { Decision, DecisionFormData, FormErrors, ChosenOptionValue } from './types';
 import { MAX_TITLE_LENGTH, MAX_OPTION_LENGTH, MAX_REASON_LENGTH } from './constants';
 
 export { MAX_TITLE_LENGTH, MAX_OPTION_LENGTH, MAX_REASON_LENGTH };
@@ -118,3 +118,72 @@ export function validateDecisionForm(data: DecisionFormData): FormErrors {
 export function hasValidationErrors(errors: FormErrors): boolean {
   return Object.keys(errors).length > 0;
 }
+
+export interface StoredDecisionValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+/**
+ * Validates each stored decision's required fields, chosen option, and date.
+ * Required fields: id, title, optionA, optionB, reason
+ * Chosen option: must be 'A' or 'B'
+ * Date: createdAt must be a valid parseable date string
+ */
+export function validateStoredDecision(item: unknown): StoredDecisionValidationResult {
+  const errors: string[] = [];
+
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    return {
+      isValid: false,
+      errors: ['Stored decision record must be a valid object.'],
+    };
+  }
+
+  const candidate = item as Record<string, unknown>;
+
+  // Required fields check
+  if (typeof candidate.id !== 'string' || candidate.id.trim() === '') {
+    errors.push('Missing or empty required field: id');
+  }
+  if (typeof candidate.title !== 'string' || candidate.title.trim() === '') {
+    errors.push('Missing or empty required field: title');
+  }
+  if (typeof candidate.optionA !== 'string' || candidate.optionA.trim() === '') {
+    errors.push('Missing or empty required field: optionA');
+  }
+  if (typeof candidate.optionB !== 'string' || candidate.optionB.trim() === '') {
+    errors.push('Missing or empty required field: optionB');
+  }
+  if (typeof candidate.reason !== 'string' || candidate.reason.trim() === '') {
+    errors.push('Missing or empty required field: reason');
+  }
+
+  // Chosen option check
+  if (candidate.chosenOption !== 'A' && candidate.chosenOption !== 'B') {
+    errors.push("Invalid chosenOption: must be 'A' or 'B'");
+  }
+
+  // Date check
+  if (typeof candidate.createdAt !== 'string' || candidate.createdAt.trim() === '') {
+    errors.push('Missing or empty required field: createdAt');
+  } else {
+    const timestamp = Date.parse(candidate.createdAt);
+    if (Number.isNaN(timestamp)) {
+      errors.push('Invalid createdAt: must be a valid date string');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Type guard that verifies if an unknown stored item is a valid Decision.
+ */
+export function isValidStoredDecision(item: unknown): item is Decision {
+  return validateStoredDecision(item).isValid;
+}
+

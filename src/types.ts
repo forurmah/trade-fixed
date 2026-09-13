@@ -39,4 +39,18 @@ export interface AddDecisionFormProps {
   onCancel: () => void;
 }
 
-export type AppView = 'list' | 'add' | 'detail';
+export interface UpdateDecisionInput {
+  title: string;
+  optionA: string;
+  optionB: string;
+  chosenOption: ChosenOptionValue;
+  reason: string;
+}
+
+export interface EditDecisionFormProps {
+  decision: Decision;
+  onSave: (data: UpdateDecisionInput) => void;
+  onCancel: () => void;
+}
+
+export type AppView = 'list' | 'add' | 'detail' | 'edit';

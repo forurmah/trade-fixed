@@ -5,9 +5,10 @@ import { DemoNotice } from './DemoNotice';
 interface DecisionDetailsProps {
   decision: Decision | undefined;
   onBack: () => void;
+  onEdit: (id: string) => void;
 }
 
-export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBack }) => {
+export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBack, onEdit }) => {
   if (!decision) {
     return (
       <div
@@ -80,11 +81,21 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBa
               {formattedDate}
             </span>
 
-            <span
-              className="px-3 py-1 rounded-full bg-[#F5EEEE] text-[#3B4659] text-[12px] font-semibold border border-[#EBDDDD]/80 shrink-0"
-            >
-              Awaiting reflection
-            </span>
+            <div className="flex items-center gap-2.5">
+              <span
+                className="px-3 py-1 rounded-full bg-[#F5EEEE] text-[#3B4659] text-[12px] font-semibold border border-[#EBDDDD]/80 shrink-0"
+              >
+                Awaiting reflection
+              </span>
+              <button
+                type="button"
+                id="edit-decision-top-button"
+                onClick={() => onEdit(decision.id)}
+                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#18233F] hover:text-[#9E2D46] bg-[#FCF8F7] hover:bg-[#F5EEEE] border border-[#EBDDDD] px-3 py-1 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9E2D46]"
+              >
+                <span>Edit</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -159,8 +170,8 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBa
           </div>
         </div>
 
-        {/* Action button */}
-        <div className="pt-2">
+        {/* Action buttons */}
+        <div className="pt-2 flex flex-wrap items-center gap-3">
           <button
             type="button"
             id="back-to-decisions-bottom-button"
@@ -169,6 +180,14 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBa
           >
             <span aria-hidden="true">←</span>
             <span>Back to decisions</span>
+          </button>
+          <button
+            type="button"
+            id="edit-decision-button"
+            onClick={() => onEdit(decision.id)}
+            className="inline-flex items-center gap-2 bg-[#18233F] hover:bg-[#25345C] text-white text-[14.5px] font-medium px-5 py-2.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18233F]"
+          >
+            <span>Edit decision</span>
           </button>
         </div>
       </article>
