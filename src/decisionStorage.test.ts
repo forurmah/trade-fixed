@@ -8,6 +8,7 @@ import {
   saveDecisionsToStorage,
   createAndStoreDecision,
   updateAndStoreDecision,
+  deleteAndStoreDecision,
   clearDecisionsFromStorage,
   isLocalStorageAvailable,
   getSafeLocalStorage,
@@ -610,6 +611,162 @@ describe('Focused Storage Tests', () => {
 
       // Must roll back to original
       assert.equal(mockStorage.getItem(DECISIONS_STORAGE_KEY), originalPayload);
+    });
+  });
+
+  // =========================================================================
+  // 5. DELETING DECISIONS TESTS
+  // =========================================================================
+  describe('Deleting Decisions', () => {
+    it('deletes the selected record while preserving other records', () => {
+      const decision1: Decision = {
+        id: 'rec-1',
+        title: 'Decision One',
+        optionA: 'Opt A1',
+        optionB: 'Opt B1',
+        chosenOption: 'A',
+        reason: 'Reason 1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+      const decision2: Decision = {
+        id: 'rec-2',
+        title: 'Decision Two',
+        optionA: 'Opt A2',
+        optionB: 'Opt B2',
+        chosenOption: 'B',
+        reason: 'Reason 2',
+        createdAt: '2026-01-02T00:00:00.000Z',
+      };
+      const decision3: Decision = {
+        id: 'rec-3',
+        title: 'Decision Three',
+        optionA: 'Opt A3',
+        optionB: 'Opt B3',
+        chosenOption: 'A',
+        reason: 'Reason 3',
+        createdAt: '2026-01-03T00:00:00.000Z',
+      };
+
+      mockStorage.store[DECISIONS_STORAGE_KEY] = JSON.stringify([decision1, decision2, decision3]);
+
+      // Delete only rec-2
+      const { deletedId, updatedDecisions } = deleteAndStoreDecision('rec-2');
+
+      assert.equal(deletedId, 'rec-2');
+      assert.equal(updatedDecisions.length, 2);
+      assert.deepEqual(updatedDecisions.map((d) => d.id), ['rec-1', 'rec-3']);
+
+      // Storage inspection: rec-2 is gone, rec-1 and rec-3 remain intact
+      const stored = JSON.parse(mockStorage.getItem(DECISIONS_STORAGE_KEY)!);
+      assert.equal(stored.length, 2);
+      assert.deepEqual(stored, [decision1, decision3]);
+    });
+
+    it('throws when attempting to delete a missing ID and preserves storage', () => {
+      const decision: Decision = { ...sampleValidDecision, id: 'existing-123' };
+      const originalPayload = JSON.stringify([decision]);
+      mockStorage.store[DECISIONS_STORAGE_KEY] = originalPayload;
+
+      assert.throws(
+        () => deleteAndStoreDecision('non-existent-id'),
+        (err: any) => {
+          assert.match(err.message, /Decision with ID "non-existent-id" was not found/i);
+          assert.match(err.message, /Original stored data was preserved/i);
+          return true;
+        }
+      );
+
+      // Throws for empty or whitespace ID as well
+      assert.throws(
+        () => deleteAndStoreDecision(''),
+        /Invalid decision ID/i
+      );
+      assert.throws(
+        () => deleteAndStoreDecision('   '),
+        /Invalid decision ID/i
+      );
+
+      // Stored data must remain completely untouched
+      assert.equal(mockStorage.getItem(DECISIONS_STORAGE_KEY), originalPayload);
+    });
+
+    it('blocks deletion and leaves mixed valid/invalid stored data untouched', () => {
+      const validRecord = { ...sampleValidDecision };
+      const invalidRecord = {
+        id: 'corrupt-rec',
+        title: 'Missing fields',
+        // Missing optionA, optionB, chosenOption, reason
+      };
+
+      const mixedPayload = JSON.stringify([validRecord, invalidRecord]);
+      mockStorage.store[DECISIONS_STORAGE_KEY] = mixedPayload;
+
+      assert.throws(
+        () => deleteAndStoreDecision(validRecord.id),
+        (err: any) => {
+          assert.match(err.message, /Cannot delete decision/i);
+          assert.match(err.message, /couldn’t be loaded because their format was invalid/i);
+          return true;
+        }
+      );
+
+      // Storage remains exactly the original raw string without alteration
+      assert.equal(mockStorage.getItem(DECISIONS_STORAGE_KEY), mixedPayload);
+    });
+
+    it('rolls back and preserves stored data if storage write fails during deletion', () => {
+      const decision1: Decision = { ...sampleValidDecision, id: 'dec-1' };
+      const decision2: Decision = { ...sampleValidDecision, id: 'dec-2' };
+      const originalPayload = JSON.stringify([decision1, decision2]);
+      mockStorage.store[DECISIONS_STORAGE_KEY] = originalPayload;
+
+      let callCount = 0;
+      const originalSetItem = mockStorage.setItem.bind(mockStorage);
+      mockStorage.setItem = (k: string, v: string) => {
+        callCount++;
+        if (callCount === 1) {
+          const quotaErr = new Error('Storage write failed (quota exceeded)');
+          quotaErr.name = 'QuotaExceededError';
+          (quotaErr as any).code = 22;
+          throw quotaErr;
+        }
+        originalSetItem(k, v);
+      };
+
+      assert.throws(
+        () => deleteAndStoreDecision('dec-1'),
+        (err: any) => {
+          assert.match(err.message, /Storage quota exceeded/i);
+          assert.match(err.message, /Original stored data was preserved/i);
+          return true;
+        }
+      );
+
+      // Storage must be rolled back to original data
+      assert.equal(mockStorage.getItem(DECISIONS_STORAGE_KEY), originalPayload);
+    });
+
+    it('deletes the final record, writes empty array, and does not call clearAllDecisions', () => {
+      const finalDecision: Decision = { ...sampleValidDecision, id: 'only-one' };
+      mockStorage.store[DECISIONS_STORAGE_KEY] = JSON.stringify([finalDecision]);
+
+      let removeItemCalled = false;
+      const origRemoveItem = mockStorage.removeItem.bind(mockStorage);
+      mockStorage.removeItem = (k: string) => {
+        removeItemCalled = true;
+        origRemoveItem(k);
+      };
+
+      const { deletedId, updatedDecisions } = deleteAndStoreDecision('only-one');
+
+      assert.equal(deletedId, 'only-one');
+      assert.equal(updatedDecisions.length, 0);
+      assert.deepEqual(updatedDecisions, []);
+
+      // Verify that saveDecisionsToStorage was used to save an empty array "[]",
+      // and removeItem (clearAllDecisions behavior) was NOT invoked
+      assert.equal(removeItemCalled, false, 'deleteAndStoreDecision must not use removeItem/clearAllDecisions');
+      assert.equal(mockStorage.getItem(DECISIONS_STORAGE_KEY), '[]');
     });
   });
 });

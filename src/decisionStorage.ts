@@ -459,6 +459,48 @@ export function updateAndStoreDecision(
 }
 
 /**
+ * Deletes a single decision by ID from localStorage.
+ * Central requirements:
+ * 1. Reads the latest stored decisions before modifying storage.
+ * 2. If loading reports any error (corruption, unreadable format, invalid records),
+ *    blocks deletion and preserves the original raw stored data without overwriting.
+ * 3. If the selected ID is missing, throws an error rather than reporting success.
+ * 4. Deletes only the selected decision by ID, preserving all other records.
+ * 5. Does NOT use clearAllDecisions (or storage.removeItem) to delete one record.
+ * 6. Persists the updated array (which may be [] if deleting the final record) before returning.
+ * 7. If saving fails (e.g. QuotaExceededError or write error), throws and rolls back to preserve stored data.
+ */
+export function deleteAndStoreDecision(id: string): { deletedId: string; updatedDecisions: Decision[] } {
+  if (!id || typeof id !== 'string' || !id.trim()) {
+    throw new Error('Invalid decision ID. Original stored data was preserved.');
+  }
+
+  // 1. Read latest stored decisions directly from storage inside error handling
+  const { decisions, loadError } = getDecisionsFromStorage();
+
+  // 2. If loading reports ANY error (corruption, unexpected format, invalid records),
+  // block deletion and preserve the original raw stored data untouched
+  if (loadError) {
+    throw new Error(`Cannot delete decision: ${loadError}`);
+  }
+
+  // 3. Check if the selected ID exists
+  const existingIndex = decisions.findIndex((d) => d.id === id);
+  if (existingIndex === -1) {
+    throw new Error(`Decision with ID "${id}" was not found. Original stored data was preserved.`);
+  }
+
+  // 4. Delete only the selected decision by ID, leaving all other records untouched
+  const updatedDecisions = decisions.filter((d) => d.id !== id);
+
+  // 5. Persist the deletion to storage (using saveDecisionsToStorage, NOT clearAllDecisions)
+  // Even if updatedDecisions is empty (final record), saveDecisionsToStorage saves '[]'
+  saveDecisionsToStorage(updatedDecisions);
+
+  return { deletedId: id, updatedDecisions };
+}
+
+/**
  * Clears stored decisions from localStorage.
  * Storage removal is placed inside error handling.
  */

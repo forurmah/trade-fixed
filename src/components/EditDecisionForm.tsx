@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Decision, UpdateDecisionInput, FormErrors, ChosenOptionValue } from '../types';
 import {
   validateDecisionForm,
@@ -14,23 +14,33 @@ export interface EditDecisionFormProps {
   onCancel: () => void;
 }
 
+const getInitialFormData = (d: Decision) => ({
+  title: d.title,
+  optionA: d.optionA,
+  optionB: d.optionB,
+  chosenOption: d.chosenOption as ChosenOptionValue | null,
+  reason: d.reason,
+});
+
 export const EditDecisionForm: React.FC<EditDecisionFormProps> = ({
   decision,
   onSave,
   onCancel,
 }) => {
-  const [formData, setFormData] = useState({
-    title: decision.title,
-    optionA: decision.optionA,
-    optionB: decision.optionB,
-    chosenOption: decision.chosenOption as ChosenOptionValue | null,
-    reason: decision.reason,
-  });
+  const [formData, setFormData] = useState(() => getInitialFormData(decision));
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [storageError, setStorageError] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Synchronize internal form state whenever the decision prop changes
+  useEffect(() => {
+    setFormData(getInitialFormData(decision));
+    setErrors({});
+    setStorageError(null);
+    setHasAttemptedSubmit(false);
+  }, [decision]);
 
   // Focus management
   const titleInputRef = useRef<HTMLInputElement>(null);

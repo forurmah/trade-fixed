@@ -11,7 +11,7 @@ import { useDecisions } from './useDecisions';
 
 export default function App() {
   // Shared state: List of decisions loaded from & synchronized with Local Storage
-  const { decisions, loadError, reloadDecisions, addDecision, updateDecision } = useDecisions();
+  const { decisions, loadError, reloadDecisions, addDecision, updateDecision, deleteDecision } = useDecisions();
   
   // Navigation state: current active view
   const [currentView, setCurrentView] = useState<AppView>('list');
@@ -82,6 +82,24 @@ export default function App() {
     // Screen updates ONLY AFTER saving succeeds!
     setCurrentView('detail');
     setConfirmationMessage('Decision updated successfully.');
+  };
+
+  /**
+   * Handler: Delete a single decision by ID.
+   * REQUIREMENTS:
+   * 1. Persist the deletion before updating React state or navigating.
+   * 2. If saving fails, updateDecision/deleteDecision throws so details screen shows error and stays.
+   * 3. After success, return to list, clear selected ID, and show "Decision deleted."
+   */
+  const handleDeleteDecision = (id: string) => {
+    // Persist via deleteDecision -> deleteAndStoreDecision
+    // If saving fails or loading reports corruption, this throws and prevents navigation
+    deleteDecision(id);
+
+    // After success: return to list, clear selected ID, and set confirmation message
+    setSelectedDecisionId(null);
+    setCurrentView('list');
+    setConfirmationMessage('Decision deleted.');
   };
 
   // Handler: Return to the My Decisions list
@@ -194,6 +212,7 @@ export default function App() {
             decision={selectedDecision}
             onBack={handleBackToList}
             onEdit={handleOpenEditDecision}
+            onDelete={handleDeleteDecision}
             confirmationMessage={confirmationMessage}
             onDismissConfirmation={() => setConfirmationMessage(null)}
           />

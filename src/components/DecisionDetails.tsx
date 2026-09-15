@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { AlertTriangle, Pencil } from 'lucide-react';
 import { Decision } from '../types';
 import { DemoNotice } from './DemoNotice';
 
@@ -6,6 +7,7 @@ interface DecisionDetailsProps {
   decision: Decision | undefined;
   onBack: () => void;
   onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
   confirmationMessage?: string | null;
   onDismissConfirmation?: () => void;
 }
@@ -14,9 +16,33 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
   decision,
   onBack,
   onEdit,
+  onDelete,
   confirmationMessage,
   onDismissConfirmation,
 }) => {
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleConfirmedDelete = () => {
+    if (!decision) return;
+
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      // Persist the deletion before updating React state or navigating
+      onDelete(decision.id);
+    } catch (err: any) {
+      console.error('Failed to delete decision:', err);
+      // If saving fails, remain on details screen and show accessible error
+      setDeleteError(
+        err?.message ||
+          'Failed to delete decision due to a storage error. Original stored data was preserved.'
+      );
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
   if (!decision) {
     return (
       <div
@@ -86,6 +112,30 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
         </div>
       )}
 
+      {/* Accessible Error Banner on Delete Failure */}
+      {deleteError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          id="detail-delete-error-banner"
+          className="w-full bg-[#FDF2F4] border border-[#F1D3D7] text-[#85273C] px-4 py-3 rounded-xl flex items-center justify-between text-[14px] font-medium animate-fadeIn min-w-0"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-[#9E2D46]" aria-hidden="true" />
+            <span className="break-words [overflow-wrap:anywhere]">{deleteError}</span>
+          </div>
+          <button
+            type="button"
+            id="dismiss-detail-delete-error-button"
+            onClick={() => setDeleteError(null)}
+            className="text-[#85273C] hover:text-[#561423] text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded cursor-pointer shrink-0 ml-2"
+            aria-label="Dismiss error message"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Top Back Link */}
       <div>
         <button
@@ -115,21 +165,11 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
               {formattedDate}
             </span>
 
-            <div className="flex items-center gap-2.5">
-              <span
-                className="px-3 py-1 rounded-full bg-[#F5EEEE] text-[#3B4659] text-[12px] font-semibold border border-[#EBDDDD]/80 shrink-0"
-              >
-                Awaiting reflection
-              </span>
-              <button
-                type="button"
-                id="edit-decision-top-button"
-                onClick={() => onEdit(decision.id)}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#18233F] hover:text-[#9E2D46] bg-[#FCF8F7] hover:bg-[#F5EEEE] border border-[#EBDDDD] px-3 py-1 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9E2D46]"
-              >
-                <span>Edit</span>
-              </button>
-            </div>
+            <span
+              className="px-3 py-1 rounded-full bg-[#F5EEEE] text-[#3B4659] text-[12px] font-semibold border border-[#EBDDDD]/80 shrink-0"
+            >
+              Awaiting reflection
+            </span>
           </div>
         </div>
 
@@ -205,25 +245,86 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
         </div>
 
         {/* Action buttons */}
-        <div className="pt-2 flex flex-wrap items-center gap-3">
+        <div className="pt-4 sm:pt-5 border-t border-[#EBDDDD]/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2.5 sm:gap-3">
+            <button
+              type="button"
+              id="back-to-decisions-bottom-button"
+              onClick={onBack}
+              disabled={isDeleting}
+              className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-white hover:bg-[#FCF8F7] border border-[#EBDDDD] hover:border-[#18233F]/30 text-[#18233F] text-[14.5px] sm:text-[15px] font-medium px-5 py-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9E2D46] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span aria-hidden="true">←</span>
+              <span>Back to decisions</span>
+            </button>
+            <button
+              type="button"
+              id="edit-decision-button"
+              onClick={() => onEdit(decision.id)}
+              disabled={isDeleting}
+              className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-[#18233F] hover:bg-[#25345C] text-white text-[14.5px] sm:text-[15px] font-medium px-6 py-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18233F] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Pencil className="w-4 h-4 text-white/80" aria-hidden="true" />
+              <span>Edit decision</span>
+            </button>
+          </div>
+
           <button
             type="button"
-            id="back-to-decisions-bottom-button"
-            onClick={onBack}
-            className="inline-flex items-center gap-2 bg-white hover:bg-[#FCF8F7] border border-[#EBDDDD] hover:border-[#18233F]/30 text-[#18233F] text-[14.5px] font-medium px-5 py-2.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9E2D46]"
+            id="delete-decision-button"
+            onClick={() => {
+              setDeleteError(null);
+              setShowDeleteConfirm((prev) => !prev);
+            }}
+            disabled={isDeleting}
+            className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 bg-transparent hover:bg-[#FDF2F4] text-[#85273C] hover:text-[#561423] border border-[#F1D3D7] hover:border-[#85273C] text-[14.5px] font-medium px-4.5 py-2.5 rounded-xl transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#85273C] disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label={`Delete decision ${decision.title}`}
+            aria-expanded={showDeleteConfirm}
           >
-            <span aria-hidden="true">←</span>
-            <span>Back to decisions</span>
-          </button>
-          <button
-            type="button"
-            id="edit-decision-button"
-            onClick={() => onEdit(decision.id)}
-            className="inline-flex items-center gap-2 bg-[#18233F] hover:bg-[#25345C] text-white text-[14.5px] font-medium px-5 py-2.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18233F]"
-          >
-            <span>Edit decision</span>
+            <span>{isDeleting ? 'Deleting...' : 'Delete decision'}</span>
           </button>
         </div>
+
+        {/* In-app confirmation dialog (works reliably in sandboxed iframes) */}
+        {showDeleteConfirm && (
+          <div
+            role="region"
+            aria-label="Confirm decision deletion"
+            id="delete-confirmation-prompt"
+            className="w-full bg-[#FFF5F6] border border-[#F1D3D7] rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 animate-fadeIn mt-2"
+          >
+            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+              <AlertTriangle className="w-5 h-5 text-[#85273C] shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-[14.5px] text-[#561423] font-medium break-words">
+                  Are you sure you want to delete <strong className="font-semibold">"{decision.title}"</strong>?
+                </p>
+                <p className="text-[13px] text-[#85273C] mt-0.5">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto justify-end pt-1 sm:pt-0">
+              <button
+                type="button"
+                id="cancel-delete-button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2 rounded-xl border border-[#EBDDDD] bg-white hover:bg-[#F7F2F1] text-[#18233F] text-[14px] font-medium cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center justify-center"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                id="confirm-delete-button"
+                onClick={handleConfirmedDelete}
+                disabled={isDeleting}
+                className="flex-1 sm:flex-initial min-h-[44px] px-5 py-2 rounded-xl bg-[#85273C] hover:bg-[#681E2F] text-white text-[14px] font-medium cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#85273C] disabled:opacity-50 inline-flex items-center justify-center"
+              >
+                {isDeleting ? 'Deleting...' : 'Yes, delete'}
+              </button>
+            </div>
+          </div>
+        )}
       </article>
 
       {/* Demo Notice */}

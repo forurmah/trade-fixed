@@ -4,6 +4,7 @@ import {
   getDecisionsFromStorage,
   createAndStoreDecision,
   updateAndStoreDecision,
+  deleteAndStoreDecision,
   clearDecisionsFromStorage,
   StorageLoadResult,
 } from './decisionStorage';
@@ -94,6 +95,30 @@ export function useDecisions() {
   );
 
   /**
+   * Deletes an existing decision by ID:
+   * 1. Reads latest stored decisions and verifies no corruption.
+   * 2. Deletes only the selected decision by ID from localStorage.
+   * 3. Persists to storage BEFORE updating React state.
+   * 4. Updates React state only after storage write succeeds.
+   * 5. Throws if saving fails so caller can display an accessible error without changing screen.
+   */
+  const deleteDecision = useCallback(
+    (id: string): void => {
+      try {
+        // Persist to storage FIRST:
+        const { updatedDecisions } = deleteAndStoreDecision(id);
+
+        // React state is updated ONLY AFTER persistence succeeds:
+        setLoadResult({ decisions: updatedDecisions, loadError: null });
+      } catch (error) {
+        console.error('Failed to delete decision from storage:', error);
+        throw error;
+      }
+    },
+    []
+  );
+
+  /**
    * Clears all decisions from state and localStorage.
    */
   const clearAllDecisions = useCallback(() => {
@@ -122,6 +147,7 @@ export function useDecisions() {
     reloadDecisions,
     addDecision,
     updateDecision,
+    deleteDecision,
     clearAllDecisions,
     setDecisions,
   };
