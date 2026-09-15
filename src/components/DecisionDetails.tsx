@@ -6,9 +6,17 @@ interface DecisionDetailsProps {
   decision: Decision | undefined;
   onBack: () => void;
   onEdit: (id: string) => void;
+  confirmationMessage?: string | null;
+  onDismissConfirmation?: () => void;
 }
 
-export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBack, onEdit }) => {
+export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
+  decision,
+  onBack,
+  onEdit,
+  confirmationMessage,
+  onDismissConfirmation,
+}) => {
   if (!decision) {
     return (
       <div
@@ -52,6 +60,32 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({ decision, onBa
 
   return (
     <div className="space-y-6">
+      {/* Success Confirmation Announcement Banner */}
+      {confirmationMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          id="detail-confirmation-banner"
+          className="w-full bg-[#EBF5EF] border border-[#C5E3D0] text-[#1E5631] px-4 py-3 rounded-xl flex items-center justify-between text-[14px] font-medium animate-fadeIn min-w-0"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span aria-hidden="true" className="text-base shrink-0">✓</span>
+            <span className="break-words [overflow-wrap:anywhere]">{confirmationMessage}</span>
+          </div>
+          {onDismissConfirmation && (
+            <button
+              type="button"
+              id="dismiss-detail-confirmation-button"
+              onClick={onDismissConfirmation}
+              className="text-[#1E5631] hover:text-[#11311c] text-xs font-semibold uppercase tracking-wider px-2 py-1 rounded cursor-pointer shrink-0 ml-2"
+              aria-label="Dismiss confirmation message"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Back Link */}
       <div>
         <button

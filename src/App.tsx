@@ -86,6 +86,7 @@ export default function App() {
 
   // Handler: Return to the My Decisions list
   const handleBackToList = () => {
+    setConfirmationMessage(null);
     setCurrentView('list');
     setSelectedDecisionId(null);
   };
@@ -193,6 +194,8 @@ export default function App() {
             decision={selectedDecision}
             onBack={handleBackToList}
             onEdit={handleOpenEditDecision}
+            confirmationMessage={confirmationMessage}
+            onDismissConfirmation={() => setConfirmationMessage(null)}
           />
         )}
 
