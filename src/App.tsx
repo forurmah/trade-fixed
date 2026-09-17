@@ -6,12 +6,20 @@ import { AddDecisionForm } from './components/AddDecisionForm';
 import { EditDecisionForm } from './components/EditDecisionForm';
 import { DecisionDetails } from './components/DecisionDetails';
 import { DemoNotice } from './components/DemoNotice';
-import { AppView, CreateDecisionInput, UpdateDecisionInput } from './types';
+import { AppView, CreateDecisionInput, UpdateDecisionInput, Reflection } from './types';
 import { useDecisions } from './useDecisions';
 
 export default function App() {
   // Shared state: List of decisions loaded from & synchronized with Local Storage
-  const { decisions, loadError, reloadDecisions, addDecision, updateDecision, deleteDecision } = useDecisions();
+  const {
+    decisions,
+    loadError,
+    reloadDecisions,
+    addDecision,
+    updateDecision,
+    saveReflection,
+    deleteDecision,
+  } = useDecisions();
   
   // Navigation state: current active view
   const [currentView, setCurrentView] = useState<AppView>('list');
@@ -82,6 +90,15 @@ export default function App() {
     // Screen updates ONLY AFTER saving succeeds!
     setCurrentView('detail');
     setConfirmationMessage('Decision updated successfully.');
+  };
+
+  /**
+   * Handler: Save or update reflection on a decision.
+   * Persists to localStorage first, then updates state and displays confirmation.
+   */
+  const handleSaveReflection = (id: string, reflection: Reflection) => {
+    saveReflection(id, reflection);
+    setConfirmationMessage('Reflection saved successfully.');
   };
 
   /**
@@ -213,6 +230,7 @@ export default function App() {
             onBack={handleBackToList}
             onEdit={handleOpenEditDecision}
             onDelete={handleDeleteDecision}
+            onSaveReflection={handleSaveReflection}
             confirmationMessage={confirmationMessage}
             onDismissConfirmation={() => setConfirmationMessage(null)}
           />

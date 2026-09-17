@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Decision, CreateDecisionInput, UpdateDecisionInput } from './types';
+import { Decision, CreateDecisionInput, UpdateDecisionInput, Reflection } from './types';
 import {
   getDecisionsFromStorage,
   createAndStoreDecision,
   updateAndStoreDecision,
+  saveReflectionToDecision,
   deleteAndStoreDecision,
   clearDecisionsFromStorage,
   StorageLoadResult,
@@ -95,6 +96,30 @@ export function useDecisions() {
   );
 
   /**
+   * Saves or updates a reflection on an existing decision:
+   * 1. Persists to storage FIRST: updates localStorage.
+   * 2. React state is updated ONLY AFTER persistence succeeds.
+   * 3. Throws if saving fails so caller can display an accessible error without updating screen.
+   */
+  const saveReflection = useCallback(
+    (id: string, reflection: Reflection): Decision => {
+      try {
+        // Persist to storage FIRST:
+        const { updatedDecision, updatedDecisions } = saveReflectionToDecision(id, reflection);
+
+        // React state is updated ONLY AFTER persistence succeeds:
+        setLoadResult({ decisions: updatedDecisions, loadError: null });
+
+        return updatedDecision;
+      } catch (error) {
+        console.error('Failed to save reflection in storage:', error);
+        throw error;
+      }
+    },
+    []
+  );
+
+  /**
    * Deletes an existing decision by ID:
    * 1. Reads latest stored decisions and verifies no corruption.
    * 2. Deletes only the selected decision by ID from localStorage.
@@ -147,6 +172,7 @@ export function useDecisions() {
     reloadDecisions,
     addDecision,
     updateDecision,
+    saveReflection,
     deleteDecision,
     clearAllDecisions,
     setDecisions,

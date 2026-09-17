@@ -43,13 +43,19 @@ export const DecisionCard: React.FC<DecisionCardProps> = ({ decision, onView }) 
             <span className="font-medium break-words [overflow-wrap:anywhere]">{chosenText}</span>
           </p>
 
-          <div className="pt-2">
-            <span
-              className="inline-block px-3 py-1 rounded-full bg-[#F5EEEE] text-[#3B4659] text-[12px] font-semibold border border-[#EBDDDD]/80"
-            >
-              Awaiting reflection
-            </span>
-          </div>
+          {decision.reflection && (
+            <div className="pt-2">
+              <span
+                className={`inline-block px-3 py-1 rounded-full text-[12px] font-semibold border ${
+                  decision.reflection.status === 'pending'
+                    ? 'bg-[#FBF4EC] text-[#8C5815] border-[#F1DFC6]'
+                    : 'bg-[#EBF5EF] text-[#1E5631] border-[#C5E3D0]'
+                }`}
+              >
+                {decision.reflection.status === 'pending' ? 'Pending' : 'Resolved'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Action: View decision */}

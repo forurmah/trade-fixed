@@ -1,5 +1,13 @@
 export type ChosenOptionValue = 'A' | 'B';
 
+export type ReflectionStatus = 'pending' | 'resolved';
+
+export interface Reflection {
+  outcome: string;
+  whatWouldChange: string;
+  status: ReflectionStatus;
+}
+
 export interface Decision {
   id: string;
   title: string;
@@ -8,6 +16,7 @@ export interface Decision {
   chosenOption: ChosenOptionValue;
   reason: string;
   createdAt: string; // ISO string
+  reflection?: Reflection;
 }
 
 export interface CreateDecisionInput {
@@ -45,6 +54,7 @@ export interface UpdateDecisionInput {
   optionB: string;
   chosenOption: ChosenOptionValue;
   reason: string;
+  reflection?: Reflection;
 }
 
 export interface EditDecisionFormProps {

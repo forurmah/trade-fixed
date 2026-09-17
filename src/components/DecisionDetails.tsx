@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Pencil } from 'lucide-react';
-import { Decision } from '../types';
+import { Decision, Reflection } from '../types';
 import { DemoNotice } from './DemoNotice';
+import { ReflectionForm } from './ReflectionForm';
 
 interface DecisionDetailsProps {
   decision: Decision | undefined;
   onBack: () => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onSaveReflection: (id: string, reflection: Reflection) => void;
   confirmationMessage?: string | null;
   onDismissConfirmation?: () => void;
 }
@@ -17,12 +19,22 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
   onBack,
   onEdit,
   onDelete,
+  onSaveReflection,
   confirmationMessage,
   onDismissConfirmation,
 }) => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditingReflection, setIsEditingReflection] = useState(false);
+  const [isAddingReflection, setIsAddingReflection] = useState(false);
+
+  const handleSaveReflection = (reflection: Reflection) => {
+    if (!decision) return;
+    onSaveReflection(decision.id, reflection);
+    setIsEditingReflection(false);
+    setIsAddingReflection(false);
+  };
 
   const handleConfirmedDelete = () => {
     if (!decision) return;
@@ -165,11 +177,18 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
               {formattedDate}
             </span>
 
-            <span
-              className="px-3 py-1 rounded-full bg-[#F5EEEE] text-[#3B4659] text-[12px] font-semibold border border-[#EBDDDD]/80 shrink-0"
-            >
-              Awaiting reflection
-            </span>
+            {decision.reflection && (
+              <span
+                id="decision-status-badge"
+                className={`px-3 py-1 rounded-full text-[12px] font-semibold border shrink-0 ${
+                  decision.reflection.status === 'pending'
+                    ? 'bg-[#FBF4EC] text-[#8C5815] border-[#F1DFC6]'
+                    : 'bg-[#EBF5EF] text-[#1E5631] border-[#C5E3D0]'
+                }`}
+              >
+                {decision.reflection.status === 'pending' ? 'Pending' : 'Resolved'}
+              </span>
+            )}
           </div>
         </div>
 
@@ -242,6 +261,100 @@ export const DecisionDetails: React.FC<DecisionDetailsProps> = ({
               {decision.reason}
             </p>
           </div>
+        </div>
+
+        {/* Reflection Section */}
+        <div className="pt-2 border-t border-[#EBDDDD]/60 min-w-0 space-y-3">
+          {decision.reflection && !isEditingReflection ? (
+            <div id="saved-reflection-container" className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[12px] font-semibold uppercase tracking-wider text-[#4F596F]">
+                    Reflection
+                  </h2>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold border ${
+                      decision.reflection.status === 'pending'
+                        ? 'bg-[#FBF4EC] text-[#8C5815] border-[#F1DFC6]'
+                        : 'bg-[#EBF5EF] text-[#1E5631] border-[#C5E3D0]'
+                    }`}
+                  >
+                    {decision.reflection.status === 'pending' ? 'Pending' : 'Resolved'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  id="edit-reflection-trigger-button"
+                  onClick={() => setIsEditingReflection(true)}
+                  className="text-[13px] font-medium text-[#18233F] hover:text-[#9E2D46] inline-flex items-center gap-1.5 transition-colors cursor-pointer py-1 px-2 -mr-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#9E2D46]"
+                >
+                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Edit reflection</span>
+                </button>
+              </div>
+
+              <div
+                id={`saved-reflection-${decision.id}`}
+                className="bg-[#FCF8F7] border border-[#EBDDDD] rounded-xl p-5 sm:p-6 space-y-4 min-w-0"
+              >
+                <div className="space-y-1">
+                  <h3 className="text-[13px] font-semibold text-[#18233F]">
+                    What happened?
+                  </h3>
+                  <p className="text-[14.5px] text-[#4F596F] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {decision.reflection.outcome}
+                  </p>
+                </div>
+
+                <div className="space-y-1 pt-3 border-t border-[#EBDDDD]/60">
+                  <h3 className="text-[13px] font-semibold text-[#18233F]">
+                    What would I change?
+                  </h3>
+                  <p className="text-[14.5px] text-[#4F596F] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {decision.reflection.whatWouldChange}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : decision.reflection && isEditingReflection ? (
+            <ReflectionForm
+              decisionId={decision.id}
+              initialReflection={decision.reflection}
+              isEditing={true}
+              onSave={handleSaveReflection}
+              onCancel={() => setIsEditingReflection(false)}
+            />
+          ) : isAddingReflection ? (
+            <ReflectionForm
+              decisionId={decision.id}
+              isEditing={false}
+              onSave={handleSaveReflection}
+              onCancel={() => setIsAddingReflection(false)}
+            />
+          ) : (
+            <div
+              id="add-reflection-prompt-card"
+              className="bg-[#FCF8F7] border border-dashed border-[#EBDDDD] hover:border-[#C76C82]/60 rounded-xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+            >
+              <div className="space-y-1">
+                <h3 className="text-[15px] font-semibold text-[#18233F]">
+                  Reflect on this decision
+                </h3>
+                <p className="text-[13.5px] text-[#5C667E]">
+                  Capture what happened after making this choice and what you would change next time.
+                </p>
+              </div>
+              <button
+                type="button"
+                id="add-reflection-button"
+                onClick={() => setIsAddingReflection(true)}
+                className="shrink-0 inline-flex items-center justify-center gap-1.5 bg-[#18233F] hover:bg-[#25345C] text-white text-[14px] font-medium px-4 py-2.5 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18233F]"
+              >
+                <span>+ Add reflection</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Action buttons */}

@@ -1,4 +1,4 @@
-import { Decision } from './types';
+import { Decision, Reflection } from './types';
 import { isValidStoredDecision, validateStoredDecision } from './validation';
 
 export { isValidStoredDecision, validateStoredDecision };
@@ -447,6 +447,80 @@ export function updateAndStoreDecision(
     optionB: updates.optionB.trim(),
     chosenOption: updates.chosenOption,
     reason: updates.reason.trim(),
+    ...(updates.reflection !== undefined
+      ? { reflection: updates.reflection }
+      : existingRecord.reflection
+      ? { reflection: existingRecord.reflection }
+      : {}),
+  };
+
+  const updatedDecisions = [...decisions];
+  updatedDecisions[existingIndex] = updatedDecision;
+
+  // Persist to storage inside error handling; throws and rolls back if write fails
+  saveDecisionsToStorage(updatedDecisions);
+
+  return { updatedDecision, updatedDecisions };
+}
+
+/**
+ * Saves or updates a reflection on an existing decision record in localStorage.
+ * Central requirements:
+ * 1. Finds the decision by ID.
+ * 2. Validates reflection fields (outcome, whatWouldChange, and status are required).
+ * 3. Preserves all other decision fields (id, title, optionA, optionB, chosenOption, reason, createdAt).
+ * 4. Persists the updated decisions array to localStorage first.
+ * 5. Returns { updatedDecision, updatedDecisions }.
+ * Throws if validation or saving to localStorage fails so caller updates screen ONLY after saving succeeds.
+ */
+export function saveReflectionToDecision(
+  id: string,
+  reflection: Reflection
+): { updatedDecision: Decision; updatedDecisions: Decision[] } {
+  if (!id || typeof id !== 'string' || !id.trim()) {
+    throw new Error('Invalid decision ID. Original stored data was preserved.');
+  }
+
+  // Validate incoming reflection inputs
+  if (
+    !reflection ||
+    typeof reflection.outcome !== 'string' ||
+    !reflection.outcome.trim() ||
+    typeof reflection.whatWouldChange !== 'string' ||
+    !reflection.whatWouldChange.trim()
+  ) {
+    throw new Error('Invalid reflection input. Outcome and changes are required. Original stored data was preserved.');
+  }
+
+  if (
+    reflection.status !== 'pending' &&
+    reflection.status !== 'resolved'
+  ) {
+    throw new Error("Invalid reflection status. Must be 'pending' or 'resolved'. Original stored data was preserved.");
+  }
+
+  // Read existing decisions directly from storage inside error handling
+  const { decisions, loadError } = getDecisionsFromStorage();
+  if (loadError && decisions.length === 0) {
+    throw new Error(`Cannot save reflection: ${loadError}`);
+  }
+
+  const existingIndex = decisions.findIndex((d) => d.id === id);
+  if (existingIndex === -1) {
+    throw new Error(`Decision with ID "${id}" was not found. Original stored data was preserved.`);
+  }
+
+  const existingRecord = decisions[existingIndex];
+
+  const updatedReflection: Reflection = {
+    outcome: reflection.outcome.trim(),
+    whatWouldChange: reflection.whatWouldChange.trim(),
+    status: reflection.status,
+  };
+
+  const updatedDecision: Decision = {
+    ...existingRecord,
+    reflection: updatedReflection,
   };
 
   const updatedDecisions = [...decisions];

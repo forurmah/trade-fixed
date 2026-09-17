@@ -1,7 +1,19 @@
-import { Decision, DecisionFormData, FormErrors, ChosenOptionValue } from './types';
-import { MAX_TITLE_LENGTH, MAX_OPTION_LENGTH, MAX_REASON_LENGTH } from './constants';
+import { Decision, DecisionFormData, FormErrors, ChosenOptionValue, Reflection, ReflectionStatus } from './types';
+import {
+  MAX_TITLE_LENGTH,
+  MAX_OPTION_LENGTH,
+  MAX_REASON_LENGTH,
+  MIN_REFLECTION_LENGTH,
+  MAX_REFLECTION_LENGTH,
+} from './constants';
 
-export { MAX_TITLE_LENGTH, MAX_OPTION_LENGTH, MAX_REASON_LENGTH };
+export {
+  MAX_TITLE_LENGTH,
+  MAX_OPTION_LENGTH,
+  MAX_REASON_LENGTH,
+  MIN_REFLECTION_LENGTH,
+  MAX_REFLECTION_LENGTH,
+};
 
 /**
  * Validates the decision title field.
@@ -119,6 +131,73 @@ export function hasValidationErrors(errors: FormErrors): boolean {
   return Object.keys(errors).length > 0;
 }
 
+export interface ReflectionFormErrors {
+  outcome?: string;
+  whatWouldChange?: string;
+  status?: string;
+}
+
+/**
+ * Validates the reflection outcome field ("What happened?").
+ */
+export function validateReflectionOutcome(outcome: string): string | undefined {
+  const trimmed = outcome.trim();
+  if (!trimmed) {
+    return 'Please describe what happened after this decision.';
+  }
+  if (trimmed.length < MIN_REFLECTION_LENGTH) {
+    return `Outcome must be at least ${MIN_REFLECTION_LENGTH} characters.`;
+  }
+  if (trimmed.length > MAX_REFLECTION_LENGTH) {
+    return `Outcome cannot exceed ${MAX_REFLECTION_LENGTH} characters.`;
+  }
+  return undefined;
+}
+
+/**
+ * Validates the reflection whatWouldChange field ("What would I change?").
+ */
+export function validateReflectionWhatWouldChange(whatWouldChange: string): string | undefined {
+  const trimmed = whatWouldChange.trim();
+  if (!trimmed) {
+    return 'Please explain what you would change next time.';
+  }
+  if (trimmed.length < MIN_REFLECTION_LENGTH) {
+    return `What you would change must be at least ${MIN_REFLECTION_LENGTH} characters.`;
+  }
+  if (trimmed.length > MAX_REFLECTION_LENGTH) {
+    return `What you would change cannot exceed ${MAX_REFLECTION_LENGTH} characters.`;
+  }
+  return undefined;
+}
+
+/**
+ * Validates the reflection form input.
+ */
+export function validateReflectionForm(
+  outcome: string,
+  whatWouldChange: string,
+  status?: ReflectionStatus
+): ReflectionFormErrors {
+  const errors: ReflectionFormErrors = {};
+
+  const outcomeError = validateReflectionOutcome(outcome);
+  if (outcomeError) {
+    errors.outcome = outcomeError;
+  }
+
+  const changeError = validateReflectionWhatWouldChange(whatWouldChange);
+  if (changeError) {
+    errors.whatWouldChange = changeError;
+  }
+
+  if (status !== 'pending' && status !== 'resolved') {
+    errors.status = "Status must be either 'pending' or 'resolved'.";
+  }
+
+  return errors;
+}
+
 export interface StoredDecisionValidationResult {
   isValid: boolean;
   errors: string[];
@@ -129,6 +208,7 @@ export interface StoredDecisionValidationResult {
  * Required fields: id, title, optionA, optionB, reason
  * Chosen option: must be 'A' or 'B'
  * Date: createdAt must be a valid parseable date string
+ * Reflection (optional): if present, must have valid outcome, whatWouldChange, and status ('pending' | 'resolved')
  */
 export function validateStoredDecision(item: unknown): StoredDecisionValidationResult {
   const errors: string[] = [];
@@ -171,6 +251,27 @@ export function validateStoredDecision(item: unknown): StoredDecisionValidationR
     const timestamp = Date.parse(candidate.createdAt);
     if (Number.isNaN(timestamp)) {
       errors.push('Invalid createdAt: must be a valid date string');
+    }
+  }
+
+  // Optional reflection check
+  if (candidate.reflection !== undefined && candidate.reflection !== null) {
+    if (typeof candidate.reflection !== 'object' || Array.isArray(candidate.reflection)) {
+      errors.push('Invalid reflection: must be a valid object');
+    } else {
+      const refCandidate = candidate.reflection as Record<string, unknown>;
+      if (typeof refCandidate.outcome !== 'string' || refCandidate.outcome.trim() === '') {
+        errors.push('Invalid reflection: outcome must be a non-empty string');
+      }
+      if (typeof refCandidate.whatWouldChange !== 'string' || refCandidate.whatWouldChange.trim() === '') {
+        errors.push('Invalid reflection: whatWouldChange must be a non-empty string');
+      }
+      if (
+        refCandidate.status !== 'pending' &&
+        refCandidate.status !== 'resolved'
+      ) {
+        errors.push("Invalid reflection: status must be 'pending' or 'resolved'");
+      }
     }
   }
 
